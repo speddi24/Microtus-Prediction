@@ -1,0 +1,545 @@
+---
+title: "FINAL PROJECT- QUESTION 1"
+author: "SNIGDHA PEDDI"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message=F,warning=F,echo=F,fig_height=10,fig_width=7,cache = F)
+```
+
+```{r Libraries}
+#install.packages("dplyr")
+library(dplyr)
+#install.packages("ggplot2")
+library(ggplot2)
+#install.packages("tidyr")
+library(tidyr)
+#install.packages("HSAUR3")
+library(HSAUR3)
+#install.packages("data.table")
+library(data.table)
+#install.packages("mlbench")
+library(mlbench)
+#install.packages("partykit")
+library(partykit)
+#install.packages("mboost")
+library(mboost)
+#install.packages("gamlss.data")
+library(gamlss.data)
+#install.packages("lattice")
+library(lattice)
+#install.packages("quantreg")
+library("quantreg")
+#install.packages("coin")
+library(coin)
+#install.packages("multcomp")
+library(multcomp)
+#install.packages("sandwich")
+library(sandwich)
+#install.packages("lme4")
+library(lme4)
+#install.packages("Flury")
+library(Flury)
+#install.packages("corrplot")
+library(corrplot)
+#install.packages("caret")
+library(caret)
+#install.packages("GGally")
+library(GGally)
+#install.packages("ISLR")
+#library(ISLR)
+#install.packages("boot")
+library(boot)
+#install.packages("mgcv")
+library(mgcv)
+#install.packages("mboost")
+library(mboost)
+#install.packages("leaps")
+library(leaps)
+```
+
+### INTRODUCTION
+
+  *Microtus* data from *Flury* package consists of data of two different species of Microtus, M.multiplex and M.subterraneus which are difficult to distinguish morphologically. The Microtus data consists of eight morphometric variables measured using Nikon measure-scope and dial calipers. The data set has records of 288 specimens out of which 89 were analyzed and their species was identified. Remaining 199 specimenwere grouped as unknown and are to be distinguished into respective species based on the morphometric variables. The 9 variables include Group(a factor with levels multiplex, subterraneus, unknown), MlLeft( width of upper left molar 1-0.001mm),M2Left (width of upper left molar 2-0.0001mm),M3Left(width of upper left molar 3-0.001mm),Foramen(Length of incisive foramen-0.001mm),Pbone(Length of palatal bone-0.001mm),Length(condylo incisive length or skull length-0.01mm),Height(skull height ablove bullae-0.01mm),Rostrum(skull width across rostrum-0.01mm).Generalized linear model will be fit and used to identify these unknown species.
+  
+### ANALYSIS
+
+#### Exploratory Data Analysis:
+
+  Microtus data is subset to Training and Test data sets. 89 specimen that were previously identified and  grouped into miltiplex and subterraneus were subset into Training data set and that were grouped as unknown species were subset to Test data set.Exploratory data analysis is done to verify the dimensions of the datasets and if there were any missing values.And the summary of the datasets give a basic idea of values in the datasets (mean ,median values etc.).
+  
+  
+```{r Code Chunk-1}
+
+# Calling the microtus data from Flury package
+data("microtus")
+# Reading the head of microtus data
+#head(microtus)
+
+
+# TRAINING DATASET
+
+# Renaming microtus data to micro
+micro <- microtus
+
+# Converting any factor variable to Character variable
+micro <-micro %>% mutate_if(is.factor, as.character)
+
+# Checking the Class of the Dependet Variable Group
+#class(micro$Group)
+
+# Filtering microtus data by Group where Group = Multiplex and subterraneus
+micro1 <-micro[1:89,] 
+
+# Reading the head of micro1 data to verify if the filter is applied by Group variable
+#head(micro1)
+
+# Reading the tail of micro1 data to verify if the filter is applied by Group variable
+#tail(micro1)
+
+# Checking the dimension of micro1 data
+ cat("Dimensions of Training Set:", dim(micro1),"\n\n")
+ 
+#To check if there are any missing variables
+
+cat("Number of missing values in Training Set:",micro1 %>% is.na() %>% sum())
+
+cat("\n\n")
+
+#Converting any factor variable to Character variable
+micro1 <-micro1 %>% mutate_if(is.character, as.factor) 
+
+# Summary of Training Data
+summary(micro1)
+cat("\n\n")
+```
+```{r Code Chunk-2}
+# TEST DATASET
+
+# Filtering microtus data by Group where Group = unknown, Separating out the Test Data set
+micro2 <-micro[90:288,] 
+
+#Converting any factor variable to Character variable
+micro2 <-micro2 %>% mutate_if(is.character, as.factor)
+
+# Reading the head of micro2 data to verify if the filter is applied by Group variable
+#head(micro2)
+
+# Dopping the Group Variable
+drops <- c("Group")
+micro2 <- micro2[ , !(names(micro2) %in% drops)]
+
+# Reading the head of micro2 data to verify if the Group variable is dropped 
+#head(micro2)
+
+# Checking the dimension of micro2 data
+ cat("Dimensions of Test Set:", dim(micro2),"\n\n")
+ 
+#To check if there are any missing variables
+
+cat("Number of missing values in Test Set:",micro2 %>% is.na() %>% sum())
+cat("\n\n")
+ 
+# Summary of Test Data
+summary(micro2)
+cat("\n\n")
+```
+
+
+```{r Code Chunk-3, fig.width=12}
+#Pairs plot to study the correlation between variables
+#pairs(micro1,main="Correlation Plot of Training Data")
+
+```
+ 
+  The correlation between the variables and the Group of the training data is reviewed by plotting the correlation using *ggpairs*.
+  
+  
+```{r Code Chunk-4, fig.width=12, fig.height=10}
+#Pairs plot to study the correlation between variables using ggplot
+ggpairs(micro1,title="Correlation Plot of Training Data:ggplot")
+```
+
+ 
+  From the plot it is clear that there is a non-linear relationship between the Group variable and the rest of the variables.To further understand the relationship between the two different groups and their characteristics, box plot of of all the variables is reviewed. These plot shows that the mean values of all the variables are higher for multiplex species compared to subterraneus species indicating that which a right model the unknown specimenn can be identified and grouped into multiplex and subterraneus species.
+  
+  
+```{r Code Chunk-5, fig.height=12,fig.width=8}
+par(mfrow=c(3,3))
+plot(M1Left~micro1$Group ,data=micro1,
+      xlab="Group",
+      ylab="M1Left",
+      main=" Comparision of M1Left")
+plot(M2Left~micro1$Group ,data=micro1,
+      xlab="Group",
+      ylab="M2Left",
+      main=" Comparision of M2Left")
+plot(M3Left~micro1$Group ,data=micro1,
+      xlab="Group",
+      ylab="M3Left",
+      main=" Comparision of M3Left")
+plot(Foramen~micro1$Group ,data=micro1,
+      xlab="Group",
+      ylab="Foramen",
+      main=" Comparision of Foramen")
+plot(Pbone~micro1$Group ,data=micro1,
+      xlab="Group",
+      ylab="Pbone",
+      main=" Comparision of Pbone")
+plot(Length~micro1$Group ,data=micro1,
+      xlab="Group",
+      ylab="Length",
+      main=" Comparision of Length")
+plot(Height~micro1$Group ,data=micro1,
+      xlab="Group",
+      ylab="Height",
+      main=" Comparision of Height ")
+plot(Rostrum~micro1$Group ,data=micro1,
+      xlab="Group",
+      ylab="Rostrum",
+      main=" Comparision of Rostrum")
+
+```
+```{r Code Chunk-6, fig.height=9,fig.width=9}
+par(mfrow=c(3,3))
+plot(micro1$Group ~M1Left,data=micro1,
+      xlab="Group",
+      ylab="M1Left",
+      main=" Comparision of M1Left")
+plot(micro1$Group ~M2Left ,data=micro1,
+      xlab="Group",
+      ylab="M2Left",
+      main=" Comparision of M2Left")
+plot(micro1$Group ~M3Left ,data=micro1,
+      xlab="Group",
+      ylab="M3Left",
+      main=" Comparision of M3Left")
+plot(micro1$Group~Foramen ,data=micro1,
+      xlab="Group",
+      ylab="Foramen",
+      main=" Comparision of Foramen")
+plot(micro1$Group~Pbone ,data=micro1,
+      xlab="Group",
+      ylab="Pbone",
+      main=" Comparision of Pbone")
+plot(micro1$Group~Length ,data=micro1,
+      xlab="Group",
+      ylab="Length",
+      main=" Comparision of Length")
+plot(micro1$Group~Height ,data=micro1,
+      xlab="Group",
+      ylab="Height",
+      main=" Comparision of Height")
+plot(micro1$Group~Rostrum ,data=micro1,
+      xlab="Group",
+      ylab="Rostrum",
+      main=" Comparision of Rostrum")
+```
+
+#### Feature Selection:
+
+  Various methods were considered for the feature selection.Feature selection using *regsubsets()* function (from leaps library) helps in selecting the best model among the models with increasing number of predictor variables.For instance, a best model with two predictor variables contain M1Left and Foramen variables.By default, the *regsubsets()* function only outputs the results from the best fit models.The '*' indicate the variables selected in each best model.The adjusted $R^2$ of the selected models show that including the number of variables in the model gives the best performance. However, an optimal model is selected from the BIC plot of the fit. The BIC plot indicates that the optimal model can be fit using intercept, M1Left, Foramen and Rostrum variables.The top row of the plot has a black square indicating the best variables to be used in the model.A Generalized Linear Model(GLM) is fit using these variables.
+  
+
+```{r Code Chunk-7}
+# subset feature selection selection
+all_fits <- leaps::regsubsets(Group~.,micro1)
+# Formula of the fit
+cat("Subset selection:\n")
+all_fits$call
+cat("\n\n")
+
+#Summary showing the model selected per RSS
+(summary(all_fits))$outmat
+
+#Comaprision of Adjusted R2
+cat("\n Adjusted R squares of the selected models: \n\n",(summary(all_fits))$adjr2)
+```
+```{r Code Chunk-8}
+#Summary of the model with 8 variables
+#summary(all_fits)
+```
+
+```{r Code Chunk-9}
+# Selecting variables for best model (The variables with higher bic values gives best model-M1Left+Foramen and Rostrum)
+plot(all_fits,scale="bic")
+```
+
+```{r Code Chunk-10}
+#Model using the variables from regsubsets
+Subset <-glm(Group~M1Left+Foramen+Rostrum,data=micro1,family=binomial())
+
+# Summary of the model
+#summary(Subset)
+
+#Printing AIC values and P Values of the model
+cat("Model: \n\n")
+Subset$call
+cat("\n\n")
+cat("AIC values of the regsubsets model: ",round(summary(Subset)$aic,2),"\n\n")
+cat("P values of the intercept and features: \n")
+data.frame("pvalues_regsubsets"=round(coef(summary(Subset))[,4],3))
+
+```
+
+ A GLM model is fit using Group as the dependent variable and using all other features. Another GLM model is fit using only intercept.More GLM models were fit using higher order polynomials.
+  
+
+```{r Code Chunk-11}
+
+#Model using all variables
+glm_1<-glm(Group~.,data=micro1,family=binomial())
+
+#Summary of the model
+#summary(glm_1)
+
+#Printing AIC values and P Values of the model
+
+cat("Model: \n\n")
+glm_1$call
+cat("\n\n")
+cat("AIC values of the model with all variables: ",round(summary(glm_1)$aic,2),"\n\n")
+cat("P values of the intercept and features: \n")
+data.frame("pvalues_all variables"=round(coef(summary(glm_1))[,4],3))
+
+```
+```{r Code Chunk-12}
+#Model using only Intercept
+glm_2<-glm(Group~1,data=micro1,family=binomial())
+
+#Summary of the model
+#summary(glm_2)
+
+#Printing AIC values and P Values of the model
+
+cat("Model: \n\n")
+glm_2$call
+cat("\n\n")
+cat("AIC values of the model with Intercept: ",round(summary(glm_2)$aic,2),"\n\n")
+cat("P values of the intercept: \n")
+data.frame("pvalues_Intercept"=round(coef(summary(glm_2))[,4],3))
+
+```
+
+```{r Code Chunk-13}
+#Polynomial Model 1
+Quad.mod1 <-glm(Group~M1Left+ poly(M2Left,degree=2)+poly(Pbone,degree=1),data=micro1,family=binomial())
+
+#Summary of the model
+#summary(Quad.mod1)
+
+#Printing AIC values and P Values of the model
+
+cat("Model: \n\n")
+Quad.mod1$call
+cat("\n\n")
+cat("AIC values of the Quadratic Model 1: ",round(summary(Quad.mod1)$aic,2),"\n\n")
+cat("P values of the intercept and Features: \n")
+data.frame("pvalues_Quadratic Model 1"=round(coef(summary(Quad.mod1))[,4],3))
+```
+
+```{r Code Chunk-14}
+#Polynomial model 2
+Quad.mod2<-glm(Group~M1Left+poly(M2Left,degree=2)+poly(M3Left,degree=2)+poly(Pbone,degree=1)+poly(Height,degree=2)+poly(Length,degree=2)+poly(Rostrum,degree=2)+poly(Foramen,degree=2),data=micro1,family=binomial())
+
+#Summary of the model
+#summary(Quad.mod2)
+
+#Printing AIC values and P Values of the model
+
+cat("Model: \n\n")
+Quad.mod2$call
+cat("\n\n")
+cat("AIC values of the Quadratic Model 2: ",round(summary(Quad.mod2)$aic,2),"\n\n")
+cat("P values of the intercept and Features: \n")
+data.frame("pvalues_Quadratic Model 2"=round(coef(summary(Quad.mod2))[,4],3))
+
+```
+
+  Further, Forward, Backward and Stepwise selection process is used to fit the models with best features.
+  In Backward selection process the models are fit by subtracting one variable each time from given variables and picks the one that predicts the most on the dependent measure. From the summary of the model it is clear that the first model has a AIC of 32.96 and the final optimal model has only few variables and a AIC value of 27.7.
+  
+  
+```{r Code Chunk-15}
+# Backward Selection
+Backward<-step(glm_1, direction="backward")
+
+#Summary of the model
+#summary(Backward)
+
+#Printing AIC values and P Values of the model
+
+cat("\n\n Model: \n\n")
+Backward$call
+cat("\n\n")
+cat("AIC values of the Backward Selection: ",round(summary(Backward)$aic,2),"\n\n")
+cat("P values of the intercept and Features: \n")
+data.frame("pvalues_Backward Selection"=round(coef(summary(Backward))[,4],3))
+
+
+#removing 1 vriable -30.965 AIC ,good model, lower AIC  better the model. Once M1Left,pbone and Rostrum variables are removed the best model with AIC of is obtained
+```
+
+  Forward selection process the models are fit by adding one variable each time from given variables and picks the one that predicts the most on the dependent measure.Similar to the Backward selection process an optimal model with best variables is fit.
+ 
+ 
+```{r Code Chunk-16}
+# Forward Selection
+Forward <-step(glm_2, direction="forward",scope=formula(glm_1))
+
+#Summary of the model
+#summary(Forward)
+
+#Printing AIC values and P Values of the model
+
+cat("Model: \n\n")
+Forward$call
+cat("\n\n")
+cat("AIC values of the Forward Selection: ",round(summary(Forward)$aic,2),"\n\n")
+cat("P values of the intercept and Features: \n")
+data.frame("pvalues_Forward Selection"=round(coef(summary(Backward))[,4],3))
+```
+   
+   Stepwise selection is similar to Forward selection but a variable is removed if it is non significant. The Final optimal model is similar to the model obtained from Forward selection and has an AIC of 28.05.
+   
+ 
+```{r Code Chunk-17}
+#Stepwise Selection
+Stepwise<-step(glm_2, direction="both",scope=formula(glm_1))
+
+# Summary of Model
+#summary(Stepwise)
+
+#Printing AIC values and P Values of the model
+
+cat("\n\n Model: \n\n")
+Stepwise$call
+cat("\n\n")
+cat("AIC values of the Stepwise Selection: ",round(summary(Stepwise)$aic,2),"\n\n")
+cat("P values of the intercept and Features: \n")
+data.frame("pvalues_Stepwise Selection"=round(coef(summary(Stepwise))[,4],3))
+```
+
+
+```{r Code Chunk-18}
+#micro3<- micro1 %>% mutate(Group=ifelse(Group=="multiplex",0,1))
+#class(micro3$Group)
+#is.factor(micro1$Group)
+#tail(micro3$Group)
+#head(micro3$Group)
+#summary(micro3)
+#as.factor(micro3$Group)
+```
+
+### RESULTS AND DISCUSSION
+
+ AIC of all the models were compared.The lower the value of AIC better the model.The models obtained from Forward selection,Backward selection, Stepwise selection and Quadratic model(with variables M1Left, M2Left and pbone) have low values of AIC and were considered for further analysis.
+ 
+ 
+```{r Code Chunk-19}
+cat("\n AIC of all models: \n\n")
+data.frame("Subset"=round(summary(Subset)$aic,1),"All_var"=round(summary(glm_1)$aic,1),"Intercept"=round(summary(glm_2)$aic,1),"Forward"=round(summary(Forward)$aic,1),"Backward"=round(summary(Backward)$aic,1),"Stepwise"=round(summary(Stepwise)$aic,1),"Quadretic Mod-1"=round(summary(Quad.mod1)$aic,1),"Quadretic Mod-2"=round(summary(Quad.mod2)$aic,1))
+```
+
+  Both Forward and Stepwise selection models have same variables and same AIC. Model from Forward selection is used hereafter. Below table shows the p values of the three models. It is clear that the variables of the Backward model are not significant at 95% confidance interval except for M1Left variable though its AIC is similar to Forward selection model.Hence, Forward and Quadratic model (with variables M1Left, M2Left and pbone) is considered for further analysis.
+  
+  
+```{r Code Chunk-20}
+# pvalues of all models
+
+#data.frame("glm_1_pvalues"=round(coef(summary(Subset))[,4],3))
+#data.frame("glm_2_pvalues"=round(coef(summary(glm_1))[,4],3))
+#data.frame("glm_3_pvalues"=round(coef(summary(model2))[,4],3))
+A <-data.frame("Forward"=round(coef(summary(Forward))[,4],3))
+B <-data.frame("Backward"=round(coef(summary(Backward))[,4],3))
+#data.frame("Stepwise"=round(coef(summary(Stepwise))[,4],3))
+C <-data.frame("Quad.mod1"=round(coef(summary(Quad.mod1))[,4],3))
+#data.frame("glm_6_pvalues"=round(coef(summary(Quad.mod2))[,4],3))
+
+bind_rows(A,B,C)
+
+```
+
+  The AIC of Quadratic model is lower than Forward selection model but it is complex compared to the other model. Analysis of variace of these models show that they are marginally significant. Further, 10 fold cross validation is performed. The Error rate of the Forward selection model is 4.49% and is lower than the Quadratic model which had an error rate of 8.99%. Considering the facts that Forward selection model is simple and has a lower error rate ,this model is is used to analyze the Test data set.
+  
+
+```{r Code Chunk-21}
+#Analysis of Variance of the models
+anova <-anova(Forward,Quad.mod1,test='Chisq')
+anova
+
+```
+```{r Code Chunk-22}
+# MSE of the two models
+#cat("MSE of model-Forward Selection:",mean((predict(Forward,micro1,type='response')-micro3$Group)^2),"\n\n")
+#cat("MSE of model-Quadretic-1:",mean((predict(Quad.mod1,micro1,type='response')-micro3$Group)^2),"\n\n")
+```
+
+
+```{r Code Chunk-23}
+set.seed(10235)
+#10 fold Cross validation (to predict accuracy of model)
+costf<- function(r,pi=0)
+  mean(abs(r-pi)>0.5)
+
+    #model13<-glm(default ~ student + balance,data=Default,family=binomial())
+    Kfold1<-cv.glm(micro1,Forward,K=10,costf)$delta[1]
+   
+cat("Error Rate in % of model with Student and balance variables using Kfold approach :",round(Kfold1*100,2),"\n\n")
+   
+    #model14<-glm(default ~balance,data=Default,family=binomial())
+    Kfold2<-cv.glm(micro1,Quad.mod1,K=10,costf)$delta[1]
+
+cat("Error Rate in % of model with only balance variables using Kfold approach :",round(Kfold2*100,2))
+
+```
+  
+  Forward model is used to predict the specimen of test data. The predicted values are comibined to the test data. Dimension of the data is verified. After prediction is done 121 specimen were grouped as multiplex and 78 specimen were grouped into subterranean species.Pairs plot confirms similar trend in the values of all variable in relation to Group variable. The mean values of Multiplex species are on the higher side compared to the other species.Then the Test data with the predictions are exported as a Comma Separated File.
+  
+
+```{r Code Chunk-24}
+# Predicting the Group of test data
+Predicted_Group <-ifelse(predict(Forward, micro2, type="response")<0.5,"Multiplex","Subterrenian")
+#Predicted_micro
+output <- cbind(micro2, Predicted_Group)
+# Checking the combined test data
+#head(output)
+
+#dimensions of the test dataset
+cat("Dimensions of the final dataset: ",dim(output),"\n\n")
+
+#Summary of Predicted group of test data
+cat("Count of the Species falling into different groups: \n")
+table(output$Predicted_Group)
+
+```
+```{r Code Chunk-25, fig.width=12,fig.height=10}
+ggpairs(output,title="Correlation Plot of Test Data:ggplot")
+```
+  
+  
+```{r Code Chunk-26}
+#Exporting data as CSV
+write.csv(output,"G:\\STATS 601\\Final Project\\Submission Files\\Final_Question 1_microtus_prediction.csv", row.names = TRUE)
+```
+
+### CONCLUSION
+
+  Microtus data with records of Microtus specimen is used for the analysis. Data set with 89 specimen grouped into multiplex and subterranean is used as Training set and remaining Specimen of unknown origin is used as test data. Exploratory data analysis show that there are no missing values, and a non linear correlation between the Group variable and other variables. Feature selection is done using different methods like subset selection using *regsubsets()* function, Step selection using Forward, Backward and Stepwise directions, Quadratic models using polynomial terms, linear models with all variables and only intercept.The Forward selection, backward selection and Quadratic model with 3 variables have lower AIC values of 28,27,7 and 26.1 and were further analyzed. The p values of Backward model were not significant at 95% confidence interval except for the M1Left feature and was rejected. Analysis of Variance of the remaining two models are marginally significant. However, the 10 fold cross validation of these models showed a lower error rate of 4.49% for model obtained from Forward selection compared to the Quadratic model that had 8.99% error rate.The simple linear model obtained from Forward selection process is used to predict the test data.121 specimen were classified as multiplex species and 78 specimen were classified as subterranean species.
+  
+
+
+
+
+### REFERENCES
+
+
+ - Snigdha Peddi,*Stat 601 Homework Assignment 3*
+ - CRAN,*microtus:Microtus classification(more vole data)*, (https://rdrr.io/cran/Flury/man/microtus.html)
+ - Lecture from Big Edu Youtube Channel,*Feature Selection in R programming|stepwise Regression|Machine Learning|Data Science*,April 20,2020 ,(https://www.youtube.com/watch?v=QKIsRYBkNCc)
+ - Lecture from Dragonfly Statistics Youtube Channel,*Backward Elimination-stepwise Regression with R*, October 18,2017,(https://www.youtube.com/watch?v=0aTtMJO-pE4)
+ - Lecture from Dragonfly Statistics Youtube Channel,*Stepwise Regression in R-Combining Forward and Backward Selection)*,October 18,2017,(https://www.youtube.com/watch?v=ejR8LnQziPY)
+- stackoverflow blogpost,*Extract pvalue from glm*,(https://stackoverflow.com/questions/23838937/extract-pvalue-from-glm)
+
+
